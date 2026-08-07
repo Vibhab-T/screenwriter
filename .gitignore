@@ -1,0 +1,68 @@
+# ===========================
+# Build directories
+# ===========================
+build/
+cmake-build-*/
+out/
+
+# ===========================
+# CMake
+# ===========================
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# ===========================
+# Generated Qt files
+# ===========================
+*_autogen/
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# ===========================
+# Compiler output
+# ===========================
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.dylib
+*.exe
+*.out
+
+# ===========================
+# Debug / Profiling
+# ===========================
+*.dSYM/
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+
+# ===========================
+# Editors
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+Session.vim
+
+# ===========================
+# OS files
+# ===========================
+.DS_Store
+Thumbs.db
+
+# ===========================
+# clangd
+# ===========================
+.cache/
