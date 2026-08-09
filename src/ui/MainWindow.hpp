@@ -1,9 +1,12 @@
 #pragma once
 
 #include <QMainWindow>
+#include <qaction.h>
+#include <qwidget.h>
 
 class QTextEdit;
 class QDockWidget;
+class QCloseEvent;
 
 class MainWindow : public QMainWindow
 {
@@ -13,7 +16,6 @@ public:
 
 private:
 	//methods
-	
 
 	void setupActions();
 	void setupMenus();
@@ -46,10 +48,18 @@ private:
 	QAction *exitAction_;
 	QAction *undoAction_;
 	QAction *redoAction_;
-	
+
+	QAction *cutAction_;
+	QAction *copyAction_;
+	QAction *pasteAction_;
+	QAction *deleteAction_;
+	QAction *selectAllAction_;
 
 	QTextEdit *editor_;
 	
 	QDockWidget *outlineDock_;
 	QDockWidget *charactersDock_;
+
+protected:
+	void closeEvent(QCloseEvent *event) override;
 };

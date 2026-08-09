@@ -1,4 +1,3 @@
-
 #include "MainWindow.hpp"
 
 #include <QAction>
@@ -15,22 +14,18 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QTextStream>
-#include <qaction.h>
-#include <qfiledevice.h>
-#include <qfiledialog.h>
-#include <qkeysequence.h>
-#include <qmessagebox.h>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
 	resize(1200, 800);
 	setWindowTitle("Screenwriter");
 
+	setupCentralWidget();
+
 	setupActions();
 	setupMenus();
 	//setupToolbar();
 	setupDockWidgets();
-	setupCentralWidget();
 	setupStatusBar();
 }
 
