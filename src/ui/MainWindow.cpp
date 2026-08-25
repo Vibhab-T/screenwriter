@@ -1,7 +1,10 @@
 #include "MainWindow.hpp"
 
 #include <QAction>
+#include <QCloseEvent>
 #include <QDockWidget>
+#include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QKeySequence>
 #include <QListWidget>
@@ -10,12 +13,10 @@
 #include <QStatusBar>
 #include <QTextDocument>
 #include <QTextEdit>
-#include <QMessageBox>
-#include <QFile>
-#include <QFileDialog>
 #include <QTextStream>
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
+MainWindow::MainWindow(QWidget *parent)
+	: QMainWindow(parent)
 {
 	resize(1200, 800);
 	setWindowTitle("Screenwriter");
@@ -24,72 +25,229 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
 	setupActions();
 	setupMenus();
-	//setupToolbar();
+	// setupToolbar();
 	setupDockWidgets();
 	setupStatusBar();
+
+	updateWindowTitle();
 }
 
 void MainWindow::setupActions()
 {
+	// File actions
 	newAction_ = new QAction("New", this);
 	openAction_ = new QAction("Open", this);
 	saveAction_ = new QAction("Save", this);
 	saveAsAction_ = new QAction("Save As", this);
 	exitAction_ = new QAction("Exit", this);
 
-	undoAction_ = new QAction("Undo", this);
-	redoAction_ = new QAction("Redo", this);
-
 	newAction_->setShortcut(QKeySequence::New);
 	openAction_->setShortcut(QKeySequence::Open);
 	saveAction_->setShortcut(QKeySequence::Save);
 	saveAsAction_->setShortcut(QKeySequence::SaveAs);
+
+	connect(
+		newAction_,
+		&QAction::triggered,
+		this,
+		&MainWindow::newFile
+	);
+
+	connect(
+		openAction_,
+		&QAction::triggered,
+		this,
+		&MainWindow::openFile
+	);
+
+	connect(
+		saveAction_,
+		&QAction::triggered,
+		this,
+		&MainWindow::saveFile
+	);
+
+	connect(
+		saveAsAction_,
+		&QAction::triggered,
+		this,
+		&MainWindow::saveFileAs
+	);
+
+	connect(
+		exitAction_,
+		&QAction::triggered,
+		this,
+		&QWidget::close
+	);
+
+	// Edit actions
+	undoAction_ = new QAction("Undo", this);
+	redoAction_ = new QAction("Redo", this);
+
+	cutAction_ = new QAction("Cut", this);
+	copyAction_ = new QAction("Copy", this);
+	pasteAction_ = new QAction("Paste", this);
+	deleteAction_ = new QAction("Delete", this);
+	selectAllAction_ = new QAction("Select All", this);
+
 	undoAction_->setShortcut(QKeySequence::Undo);
 	redoAction_->setShortcut(QKeySequence::Redo);
 
+	cutAction_->setShortcut(QKeySequence::Cut);
+	copyAction_->setShortcut(QKeySequence::Copy);
+	pasteAction_->setShortcut(QKeySequence::Paste);
+	deleteAction_->setShortcut(QKeySequence::Delete);
+	selectAllAction_->setShortcut(QKeySequence::SelectAll);
 
-	connect(newAction_, &QAction::triggered, this, &MainWindow::newFile);
-	connect(openAction_, &QAction::triggered, this, &MainWindow::openFile);
-	connect(saveAction_, &QAction::triggered, this, &MainWindow::saveFile);
-	connect(saveAsAction_, &QAction::triggered, this, &MainWindow::saveFileAs);
+	connect(
+		undoAction_,
+		&QAction::triggered,
+		editor_,
+		&QTextEdit::undo
+	);
 
-	connect(exitAction_, &QAction::triggered, this, &QWidget::close);
+	connect(
+		redoAction_,
+		&QAction::triggered,
+		editor_,
+		&QTextEdit::redo
+	);
+
+	connect(
+		cutAction_,
+		&QAction::triggered,
+		editor_,
+		&QTextEdit::cut
+	);
+
+	connect(
+		copyAction_,
+		&QAction::triggered,
+		editor_,
+		&QTextEdit::copy
+	);
+
+	connect(
+		pasteAction_,
+		&QAction::triggered,
+		editor_,
+		&QTextEdit::paste
+	);
+	
+	connect(deleteAction_, &QAction::triggered, this, [this]()
+	{
+		auto cursor = editor_->textCursor();
+
+		if (cursor.hasSelection())
+		{
+			cursor.removeSelectedText();
+		}
+		else
+		{
+			cursor.deleteChar();
+		}
+
+		editor_->setTextCursor(cursor);
+	});
+
+	connect(
+		selectAllAction_,
+		&QAction::triggered,
+		editor_,
+		&QTextEdit::selectAll
+	);
 }
 
 void MainWindow::setupMenus()
 {
+	// --------------------------------------------------
+	// File menu
+	// --------------------------------------------------
+
 	auto *fileMenu = menuBar()->addMenu("&File");
+
 	fileMenu->addAction(newAction_);
 	fileMenu->addAction(openAction_);
 	fileMenu->addAction(saveAction_);
 	fileMenu->addAction(saveAsAction_);
+
 	fileMenu->addSeparator();
+
 	fileMenu->addAction(exitAction_);
-	
+
+	// --------------------------------------------------
+	// Edit menu
+	// --------------------------------------------------
+
 	auto *editMenu = menuBar()->addMenu("&Edit");
+
 	editMenu->addAction(undoAction_);
 	editMenu->addAction(redoAction_);
+
+	editMenu->addSeparator();
+
+	editMenu->addAction(cutAction_);
+	editMenu->addAction(copyAction_);
+	editMenu->addAction(pasteAction_);
+	editMenu->addAction(deleteAction_);
+
+	editMenu->addSeparator();
+
+	editMenu->addAction(selectAllAction_);
 }
 
-//void MainWindow::setupToolbar(){}
+// void MainWindow::setupToolbar()
+// {
+// }
 
 void MainWindow::setupDockWidgets()
 {
+	// --------------------------------------------------
+	// Outline
+	// --------------------------------------------------
+
 	outlineDock_ = new QDockWidget("Outline", this);
+
 	auto *outlineList = new QListWidget(outlineDock_);
+
 	outlineDock_->setWidget(outlineList);
-	addDockWidget(Qt::LeftDockWidgetArea, outlineDock_);
+
+	addDockWidget(
+		Qt::LeftDockWidgetArea,
+		outlineDock_
+	);
+
+	// --------------------------------------------------
+	// Characters
+	// --------------------------------------------------
 
 	charactersDock_ = new QDockWidget("Characters", this);
+
 	auto *characterList = new QListWidget(charactersDock_);
+
 	charactersDock_->setWidget(characterList);
-	addDockWidget(Qt::LeftDockWidgetArea, charactersDock_);
+
+	addDockWidget(
+		Qt::LeftDockWidgetArea,
+		charactersDock_
+	);
 }
 
 void MainWindow::setupCentralWidget()
 {
 	editor_ = new QTextEdit(this);
-	connect(editor_->document(), &QTextDocument::modificationChanged, this, [this](){ updateWindowTitle(); } );
+
+	connect(
+		editor_->document(),
+		&QTextDocument::modificationChanged,
+		this,
+		[this]()
+		{
+			updateWindowTitle();
+		}
+	);
+
 	setCentralWidget(editor_);
 }
 
@@ -100,10 +258,19 @@ void MainWindow::setupStatusBar()
 
 bool MainWindow::promptSave()
 {
-	if (!editor_->document()->isModified()) return true;
+	if (!editor_->document()->isModified())
+	{
+		return true;
+	}
 
-	auto reply = QMessageBox::warning(this, "Unsaved Changes", "The document has been modified.\nDo you want to save your changes?", 
-				   QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel
+	const auto reply = QMessageBox::warning(
+		this,
+		"Unsaved Changes",
+		"The document has been modified.\n"
+		"Do you want to save your changes?",
+		QMessageBox::Save |
+		QMessageBox::Discard |
+		QMessageBox::Cancel
 	);
 
 	switch (reply)
@@ -115,6 +282,7 @@ bool MainWindow::promptSave()
 		case QMessageBox::Discard:
 			return true;
 
+		case QMessageBox::Cancel:
 		default:
 			return false;
 	}
@@ -127,37 +295,56 @@ void MainWindow::updateWindowTitle()
 	if (currentFile_.isEmpty())
 	{
 		name = "Untitled";
-	} 
+	}
 	else
 	{
 		name = QFileInfo(currentFile_).fileName();
 	}
 
-	if (editor_->document()->isModified()) name += "*";
+	if (editor_->document()->isModified())
+	{
+		name += "*";
+	}
 
 	setWindowTitle(name + " - Screenwriter");
 }
 
 void MainWindow::newFile()
 {
-	if (!promptSave()) return;
-	
+	if (!promptSave())
+	{
+		return;
+	}
+
 	editor_->clear();
+
 	currentFile_.clear();
+
 	editor_->document()->setModified(false);
+
 	updateWindowTitle();
-	
+
+	statusBar()->showMessage("New document", 3000);
 }
 
-void MainWindow::openFile() 
+void MainWindow::openFile()
 {
 	if (!promptSave())
 	{
 		return;
 	}
 
-	QString path = QFileDialog::getOpenFileName(this, "Open File", "", "Text Files (*.txt);;All Files (*)" );
-	if (path.isEmpty()) return;
+	const QString path = QFileDialog::getOpenFileName(
+		this,
+		"Open File",
+		"",
+		"Text Files (*.txt);;All Files (*)"
+	);
+
+	if (path.isEmpty())
+	{
+		return;
+	}
 
 	loadFile(path);
 }
@@ -168,27 +355,39 @@ bool MainWindow::loadFile(const QString &path)
 
 	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
 	{
-		QMessageBox::critical(this, "Error", "Unable to open file.");
+		QMessageBox::critical(
+			this,
+			"Error",
+			"Unable to open file."
+		);
+
 		return false;
 	}
 
-	
 	QTextStream in(&file);
+
 	editor_->setPlainText(in.readAll());
+
 	file.close();
 
 	currentFile_ = path;
+
 	editor_->document()->setModified(false);
 
 	updateWindowTitle();
-	statusBar()->showMessage("Opened " + QFileInfo(path).fileName(), 3000);
+
+	statusBar()->showMessage(
+		"Opened " + QFileInfo(path).fileName(),
+		3000
+	);
 
 	return true;
 }
 
-void MainWindow::saveFile() 
+void MainWindow::saveFile()
 {
-	if (currentFile_.isEmpty()) {
+	if (currentFile_.isEmpty())
+	{
 		saveFileAs();
 		return;
 	}
@@ -196,46 +395,66 @@ void MainWindow::saveFile()
 	writeFile(currentFile_);
 }
 
-void MainWindow::saveFileAs() 
+void MainWindow::saveFileAs()
 {
-	QString path = QFileDialog::getSaveFileName(this, "Save File", "", "Text Files (*.txt);;All Files (*)");
+	const QString path = QFileDialog::getSaveFileName(
+		this,
+		"Save File",
+		"",
+		"Text Files (*.txt);;All Files (*)"
+	);
 
-	if (path.isEmpty()) return;
+	if (path.isEmpty())
+	{
+		return;
+	}
 
 	writeFile(path);
 }
 
-bool MainWindow::writeFile(const QString &path) 
+bool MainWindow::writeFile(const QString &path)
 {
 	QFile file(path);
 
 	if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
 	{
-		QMessageBox::critical(this, "Error", "Unable to save file.");
+		QMessageBox::critical(
+			this,
+			"Error",
+			"Unable to save file."
+		);
+
 		return false;
 	}
 
 	QTextStream out(&file);
+
 	out << editor_->toPlainText();
-	
+
 	file.close();
 
 	currentFile_ = path;
+
 	editor_->document()->setModified(false);
 
 	updateWindowTitle();
-	statusBar()->showMessage("Saved " + QFileInfo(path).fileName(), 3000);
+
+	statusBar()->showMessage(
+		"Saved " + QFileInfo(path).fileName(),
+		3000
+	);
 
 	return true;
 }
 
-
-
-
-
-
-
-
-
-
-
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+	if (promptSave())
+	{
+		event->accept();
+	}
+	else
+	{
+		event->ignore();
+	}
+}
